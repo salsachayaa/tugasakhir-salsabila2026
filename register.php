@@ -1,128 +1,56 @@
 <?php
 require_once 'includes/functions.php';
 redirectIfLoggedIn();
-
-$error = '';
-$success = '';
-
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $full_name = sanitizeInput($_POST['full_name']);
-    $email = sanitizeInput($_POST['email']);
-    $phone = sanitizeInput($_POST['phone']);
-    $password = $_POST['password'];
-    $confirm_password = $_POST['confirm_password'];
-    
-    // Validation
-    if (empty($full_name) || empty($email) || empty($password)) {
-        $error = 'Semua field wajib diisi!';
-    } elseif (!validateEmail($email)) {
-        $error = 'Format email tidak valid!';
-    } elseif (strlen($password) < 6) {
-        $error = 'Password minimal 6 karakter!';
-    } elseif ($password !== $confirm_password) {
-        $error = 'Password dan konfirmasi password tidak cocok!';
-    } else {
-        // Check if email already exists
-        $existingUser = getUserByEmail($email);
-        if ($existingUser) {
-            $error = 'Email sudah terdaftar! Silakan gunakan email lain.';
-        } else {
-            // Create new user
-            $hashed_password = hashPassword($password);
-            $activation_token = generateToken();
-            
-            $conn = getDBConnection();
-            $stmt = $conn->prepare("INSERT INTO users (email, password, full_name, phone, activation_token) VALUES (?, ?, ?, ?, ?)");
-            $stmt->bind_param("sssss", $email, $hashed_password, $full_name, $phone, $activation_token);
-            
-            if ($stmt->execute()) {
-                // Send activation email
-                $activation_link = BASE_URL . "/activate.php?token=" . $activation_token;
-                $email_subject = "Aktivasi Akun - User Management System";
-                $email_message = "
-                    <html>
-                    <body>
-                        <h2>Selamat Datang, $full_name!</h2>
-                        <p>Terima kasih telah mendaftar sebagai Admin Gudang.</p>
-                        <p>Silakan klik tautan di bawah ini untuk mengaktifkan akun Anda:</p>
-                        <p><a href='$activation_link'>$activation_link</a></p>
-                        <p>Tautan ini akan berlaku selama 24 jam.</p>
-                        <p>Jika Anda tidak merasa mendaftar, abaikan email ini.</p>
-                        <br>
-                        <p>Salam,<br>Tim User Management System</p>
-                    </body>
-                    </html>
-                ";
-                
-                sendEmail($email, $email_subject, $email_message);
-                
-                $success = 'Registrasi berhasil! Silakan cek email Anda untuk mengaktifkan akun.';
-            } else {
-                $error = 'Terjadi kesalahan saat registrasi. Silakan coba lagi.';
-            }
-            
-            $stmt->close();
-            $conn->close();
-        }
-    }
-}
 ?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Registrasi - User Management System</title>
-    <link rel="stylesheet" href="css/style.css">
+    <title>Registrasi Ditutup - Sistem Manajemen Logistik</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+        body { font-family: 'Poppins', sans-serif; }
+    </style>
 </head>
-<body>
-    <div class="container">
-        <div class="form-wrapper">
-            <h1>Registrasi Admin Gudang</h1>
-            
-            <?php if ($error): ?>
-                <div class="alert alert-error"><?php echo $error; ?></div>
-            <?php endif; ?>
-            
-            <?php if ($success): ?>
-                <div class="alert alert-success"><?php echo $success; ?></div>
-            <?php else: ?>
-                <form method="POST" action="">
-                    <div class="form-group">
-                        <label for="full_name">Nama Lengkap *</label>
-                        <input type="text" id="full_name" name="full_name" required 
-                               value="<?php echo isset($_POST['full_name']) ? htmlspecialchars($_POST['full_name']):''; ?>">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="email">Email (Username) *</label>
-                        <input type="email" id="email" name="email" required 
-                               value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="phone">No. Telepon</label>
-                        <input type="text" id="phone" name="phone" 
-                               value="<?php echo isset($_POST['phone']) ? htmlspecialchars($_POST['phone']) : ''; ?>">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="password">Password *</label>
-                        <input type="password" id="password" name="password" required minlength="6">
-                        <small>Minimal 6 karakter</small>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="confirm_password">Konfirmasi Password *</label>
-                        <input type="password" id="confirm_password" name="confirm_password" required minlength="6">
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary">Daftar</button>
-                </form>
-            <?php endif; ?>
-            
-            <p class="text-center">
-                Sudah punya akun? <a href="login.php">Login di sini</a>
+<body class="min-h-screen bg-green-950 flex items-center justify-center p-4">
+    <div class="fixed inset-0 bg-[radial-gradient(ellipse_at_center,_#065f46_0%,_#022c22_100%)] z-0"></div>
+
+    <div class="relative z-10 w-full max-w-md">
+        <div class="text-center mb-8">
+            <div class="inline-block bg-white/90 p-4 rounded-2xl shadow-2xl mb-4">
+                <img src="images/logo-skds.jpeg" alt="Logo PT. SKDS" class="w-20 h-20 object-contain">
+            </div>
+            <h1 class="text-3xl font-bold text-white mb-2">Dashboard Logistik</h1>
+            <p class="text-green-200 text-sm">PT. Sarana Karya Dua Satu</p>
+        </div>
+
+        <div class="bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl p-8 shadow-2xl">
+            <div class="text-center mb-6">
+                <div class="inline-flex items-center justify-center w-24 h-24 bg-amber-500/90 rounded-full mb-4">
+                    <i class="fas fa-user-lock text-white text-4xl"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-white mb-2">Pendaftaran Mandiri Ditutup</h2>
+            </div>
+
+            <div class="bg-amber-500/10 border border-amber-500/30 backdrop-blur rounded-xl p-6 mb-6">
+                <p class="text-amber-100 text-sm leading-relaxed text-center">
+                    Untuk keamanan, akun baru tidak bisa dibuat sendiri di halaman ini.
+                    Jika Anda karyawan baru, silakan hubungi <strong>Pimpinan / Admin</strong>
+                    untuk dibuatkan akun. Kredensial login akan dikirimkan ke email Anda.
+                </p>
+            </div>
+
+            <a href="login.php" class="block w-full bg-gradient-to-r from-emerald-600 to-emerald-700 text-white text-center px-6 py-3 rounded-xl font-bold hover:from-emerald-700 hover:to-emerald-800 transition transform hover:scale-105 shadow-lg">
+                <i class="fas fa-arrow-left mr-2"></i>Kembali ke Login
+            </a>
+        </div>
+
+        <div class="text-center mt-8">
+            <p class="text-green-300 text-xs">
+                &copy; <?php echo date('Y'); ?> PT. Sarana Karya Dua Satu. All rights reserved.
             </p>
         </div>
     </div>

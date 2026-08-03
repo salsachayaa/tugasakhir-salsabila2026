@@ -40,3 +40,105 @@ Message:
 Status: FAILED
 ==========================================
 
+=== Email Failed at 2026-01-12 07:40:15 ===
+To: salsachayaa@gmail.com
+Subject: Aktivasi Akun - User Management System
+Error: SMTP Error: Could not authenticate.
+==========================================
+
+=== Email Failed at 2026-01-12 08:32:09 ===
+To: salsachayaa@gmail.com
+Subject: Test Email
+Error: SMTP Error: Could not authenticate.
+==========================================
+
+=== Email SUCCESS at 2026-01-12 08:45:59 ===
+To: salsachayaa@gmail.com
+Subject: Aktivasi Akun - User Management System
+==========================================
+
+=== Email SUCCESS at 2026-01-12 12:19:38 ===
+To: salvio.hrsv@gmail.com
+Subject: Aktivasi Akun - User Management System
+==========================================
+
+=== Email SUCCESS at 2026-01-12 12:34:28 ===
+To: salsachayaa@gmail.com
+Subject: Reset Password - User Management System
+==========================================
+
+=== Email SUCCESS at 2026-01-12 13:04:25 ===
+To: salvio.hrsv@gmail.com
+Subject: Aktivasi Akun - User Management System
+==========================================
+
+=== Email SUCCESS at 2026-01-12 13:07:32 ===
+To: salvio.hrsv@gmail.com
+Subject: Aktivasi Akun - User Management System
+==========================================
+
+=== Email SUCCESS at 2026-01-12 13:08:22 ===
+To: salvio.hrsv@gmail.com
+Subject: Aktivasi Akun - User Management System
+==========================================
+
+=== Email SUCCESS at 2026-01-12 13:13:37 ===
+To: salvio.hrsv@gmail.com
+Subject: Reset Password - Dashboard Logistik
+==========================================
+
+=== Email SUCCESS at 2026-01-23 02:13:30 ===
+To: salvio.hrsv@gmail.com
+Subject: Aktivasi Akun - User Management System
+==========================================
+
+=== Email SUCCESS at 2026-05-22 06:19:17 ===
+To: salsachayaa@gmail.com
+Subject: Reset Password - Dashboard Logistik
+==========================================
+
+=== Email SUCCESS at 2026-07-16 09:14:39 ===
+To: salvio.hrsv@gmail.com
+Subject: Aktivasi Akun - User Management System
+==========================================
+
+=== Email SUCCESS at 2026-07-16 09:18:08 ===
+To: salvio.hrsv@gmail.com
+Subject: Aktivasi Akun - User Management System
+==========================================
+
+=== Email SUCCESS at 2026-07-16 09:34:11 ===
+To: salvio.hrsv@gmail.com
+Subject: Akun Anda Telah Dibuat - User Management System
+==========================================
+
+=== Email SUCCESS at 2026-07-16 10:04:04 ===
+To: salvio.hrsv@gmail.com
+Subject: Akun Anda Telah Dibuat - User Management System
+==========================================
+
+=== Email SUCCESS at 2026-07-16 10:09:04 ===
+To: salvio.hrsv@gmail.com
+Subject: Akun Anda Telah Dibuat - User Management System
+==========================================
+
+=== Email SUCCESS at 2026-07-21 06:32:48 ===
+To: salvio.hrsv@gmail.com
+Subject: Akun Anda Telah Dibuat - User Management System
+==========================================
+
+=== Email SUCCESS at 2026-07-27 17:59:25 ===
+To: salvio.hrsv@gmail.com
+Subject: Akun Anda Telah Dibuat - User Management System
+==========================================
+
+=== Email SUCCESS at 2026-07-27 18:01:33 ===
+To: salsa@gmail.com
+Subject: Akun Anda Telah Dibuat - User Management System
+==========================================
+
+=== Email SUCCESS at 2026-07-31 04:21:42 ===
+To: salvio.hrsv@gmail.com
+Subject: Akun Anda Telah Dibuat - User Management System
+==========================================
+

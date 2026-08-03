@@ -17,15 +17,15 @@ function getDBConnection() {
     return $conn;
 }
 
-// Email configuration (gunakan SMTP seperti Gmail, SendGrid, atau Mailtrap untuk testing)
+// Email configuration
 define('SMTP_HOST', 'smtp.gmail.com');
 define('SMTP_PORT', 587);
-define('SMTP_USER', 'your-email@gmail.com'); // Ganti dengan email Anda
-define('SMTP_PASS', 'your-app-password'); // Gunakan App Password untuk Gmail
-define('SMTP_FROM', 'your-email@gmail.com');
+define('SMTP_USER', 'salsachayaa@gmail.com');
+define('SMTP_PASS', 'puqnbzmrngkqsvok'); // App Password Gmail
+define('SMTP_FROM', 'salsachayaa@gmail.com');
 define('SMTP_FROM_NAME', 'User Management System');
 
-// Base URL (sesuaikan dengan URL aplikasi Anda)
+// Base URL
 define('BASE_URL', 'http://localhost/usermanagement');
 
 // Start session if not already started
