@@ -7,7 +7,7 @@
  *
  * Fungsi:
  *  - Mengecek semua item di inventory_stock yang sudah kadaluarsa
- *    atau akan kadaluarsa dalam 30 hari (dan sisa stock > 0)
+ *    atau akan kadaluarsa dalam 90 hari / 3 bulan (dan sisa stock > 0)
  *  - Mengirim email ke semua user role admin/pimpinan yang aktif
  *  - Mencatat pengiriman di tabel expiry_notifications supaya
  *    tidak mengirim ulang untuk item + status yang sama
@@ -38,7 +38,7 @@ $startTime = date('Y-m-d H:i:s');
 echo "=== Cron Expiry Check dimulai: $startTime ===\n";
 
 try {
-    $result = processExpiryNotifications(30);
+    $result = processExpiryNotifications(90);
     echo "Item diperiksa (kadaluarsa/akan kadaluarsa): {$result['checked']}\n";
     echo "Email notifikasi baru terkirim: {$result['emails_sent']}\n";
     echo "=== Selesai: " . date('Y-m-d H:i:s') . " ===\n";

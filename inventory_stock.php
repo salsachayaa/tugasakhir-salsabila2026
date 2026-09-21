@@ -62,6 +62,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if ($stmt->execute()) {
             $success = 'Stock audit berhasil ditambahkan!';
             $action = 'list';
+
+            logActivity($_SESSION['user_id'], 'CREATE_STOCK', 
+                "Menambahkan stock audit: $item_name (Part#: $part_number, Qty: $quantity $unit, Lokasi: $location)"
+            );
         } else {
             $error = 'Error: ' . $stmt->error;
         }
@@ -98,6 +102,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if ($stmt->execute()) {
             $success = 'Stock berhasil diupdate!';
             $action = 'list';
+
+            logActivity($_SESSION['user_id'], 'UPDATE_STOCK', 
+                "Mengubah data stock: $item_name (Part#: $part_number), ID #$id"
+            );
         } else {
             $error = 'Gagal update!';
         }
@@ -113,9 +121,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if ($check_result['count'] > 0) {
             $error = 'Stock tidak bisa dihapus karena sudah ada barang keluar!';
         } else {
+            $get_item = $conn->prepare("SELECT item_name, part_number FROM inventory_stock WHERE id=?");
+            $get_item->bind_param("i", $_POST['id']);
+            $get_item->execute();
+            $item_to_delete = $get_item->get_result()->fetch_assoc();
+            $get_item->close();
+
             $stmt = $conn->prepare("DELETE FROM inventory_stock WHERE id=?");
             $stmt->bind_param("i", $_POST['id']);
-            $stmt->execute() ? $success = 'Stock dihapus!' : $error = 'Gagal hapus!';
+            if ($stmt->execute()) {
+                $success = 'Stock dihapus!';
+                if ($item_to_delete) {
+                    logActivity($_SESSION['user_id'], 'DELETE_STOCK', 
+                        "Menghapus stock: {$item_to_delete['item_name']} (Part#: {$item_to_delete['part_number']})"
+                    );
+                }
+            } else {
+                $error = 'Gagal hapus!';
+            }
             $stmt->close();
         }
     }

@@ -23,8 +23,9 @@ if (!$canManage && $action === 'create') {
 
 // Handle CRUD operations
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    // Karyawan (view-only) tidak boleh melakukan create/delete
-    if (!$canManage) {
+    // Karyawan (view-only) tidak boleh melakukan create/delete,
+    // TAPI semua role yang login boleh konfirmasi serah terima (confirm_delivery).
+    if (!$canManage && $_POST['action'] !== 'confirm_delivery') {
         header('Location: outgoing_goods.php?error=noaccess');
         exit;
     }
@@ -44,14 +45,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         } elseif ($stock['current_quantity'] < $_POST['quantity']) {
             $error = '❌ Stock tidak mencukupi! Tersedia: ' . $stock['current_quantity'] . ' ' . $stock['unit'];
         } else {
+            $delivery_method = $_POST['delivery_method'] ?? 'Diambil Langsung';
+            $driver_name = ($delivery_method === 'Diantar Driver/Karyawan') ? trim($_POST['driver_name'] ?? '') : null;
+            $pic_name = ($delivery_method === 'Diantar Driver/Karyawan') ? trim($_POST['pic_name'] ?? '') : null;
+            $recipient_name = ($delivery_method === 'Diantar Driver/Karyawan') ? trim($_POST['recipient_name'] ?? '') : null;
+            $recipient_note = ($delivery_method === 'Diantar Driver/Karyawan') ? trim($_POST['recipient_note'] ?? '') : null;
+
+            // Jika diambil langsung, otomatis dianggap sudah "diterima" (tidak perlu konfirmasi lanjutan).
+            // Jika diantar driver/karyawan, status jadi PENDING sampai ada konfirmasi serah terima.
+            if ($delivery_method === 'Diantar Driver/Karyawan') {
+                $delivery_status = 'PENDING';
+                $received_at = null;
+            } else {
+                $delivery_status = 'DITERIMA';
+                $received_at = date('Y-m-d H:i:s');
+            }
+
             // Insert barang keluar
-            $stmt = $conn->prepare("INSERT INTO outgoing_goods (user_id, inventory_stock_id, outgoing_date, spb_number, allocation_plan, part_number, item_name, quantity, unit, price, discount, tax, invoice_number, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("iisssssissddss", 
+            $stmt = $conn->prepare("INSERT INTO outgoing_goods (user_id, inventory_stock_id, outgoing_date, spb_number, allocation_plan, delivery_method, driver_name, pic_name, recipient_name, recipient_note, delivery_status, received_at, part_number, item_name, quantity, unit, price, discount, tax, invoice_number, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->bind_param("iissssssssssssisdddss", 
                 $_SESSION['user_id'],
                 $_POST['inventory_stock_id'],
                 $_POST['outgoing_date'],
                 $_POST['spb_number'],
                 $_POST['allocation_plan'],
+                $delivery_method,
+                $driver_name,
+                $pic_name,
+                $recipient_name,
+                $recipient_note,
+                $delivery_status,
+                $received_at,
                 $_POST['part_number'],
                 $_POST['item_name'],
                 $_POST['quantity'],
@@ -88,6 +112,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 
                 $success = '✅ Barang keluar berhasil ditambahkan! Stock tersisa: ' . $new_quantity . ' ' . $stock['unit'];
                 $action = 'list';
+
+                logActivity($_SESSION['user_id'], 'CREATE_OUTGOING', 
+                    "Menambahkan barang keluar: {$_POST['item_name']} (Qty: {$_POST['quantity']} {$_POST['unit']}) — SPB {$_POST['spb_number']}"
+                );
             } else {
                 $error = '❌ Error: ' . $stmt->error;
             }
@@ -96,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
     elseif ($_POST['action'] === 'delete') {
         // Get outgoing data
-        $stmt = $conn->prepare("SELECT inventory_stock_id, quantity FROM outgoing_goods WHERE id=?");
+        $stmt = $conn->prepare("SELECT inventory_stock_id, quantity, item_name, spb_number FROM outgoing_goods WHERE id=?");
         $stmt->bind_param("i", $_POST['id']);
         $stmt->execute();
         $outgoing = $stmt->get_result()->fetch_assoc();
@@ -118,7 +146,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             // Delete outgoing
             $stmt = $conn->prepare("DELETE FROM outgoing_goods WHERE id=?");
             $stmt->bind_param("i", $_POST['id']);
-            $stmt->execute() ? $success = '✅ Barang keluar dihapus dan stock dikembalikan!' : $error = '❌ Gagal hapus!';
+            if ($stmt->execute()) {
+                $success = '✅ Barang keluar dihapus dan stock dikembalikan!';
+                logActivity($_SESSION['user_id'], 'DELETE_OUTGOING', 
+                    "Menghapus barang keluar: {$outgoing['item_name']} (SPB {$outgoing['spb_number']})"
+                );
+            } else {
+                $error = '❌ Gagal hapus!';
+            }
+            $stmt->close();
+        }
+    }
+    elseif ($_POST['action'] === 'confirm_delivery') {
+        $spb_number = trim($_POST['spb_number'] ?? '');
+
+        $check = $conn->prepare("SELECT COUNT(*) as pending_count FROM outgoing_goods WHERE spb_number=? AND delivery_status='PENDING'");
+        $check->bind_param("s", $spb_number);
+        $check->execute();
+        $pending_count = $check->get_result()->fetch_assoc()['pending_count'] ?? 0;
+        $check->close();
+
+        if ($pending_count == 0) {
+            $error = '⚠️ Tidak ada barang dengan SPB tersebut yang masih menunggu konfirmasi serah terima.';
+        } else {
+            $received_notes = trim($_POST['received_notes'] ?? '');
+            $recipient_name_confirm = trim($_POST['recipient_name_confirm'] ?? '');
+
+            if (!empty($recipient_name_confirm)) {
+                $stmt = $conn->prepare("UPDATE outgoing_goods SET delivery_status='DITERIMA', received_at=NOW(), received_notes=?, recipient_name=? WHERE spb_number=? AND delivery_status='PENDING'");
+                $stmt->bind_param("sss", $received_notes, $recipient_name_confirm, $spb_number);
+            } else {
+                $stmt = $conn->prepare("UPDATE outgoing_goods SET delivery_status='DITERIMA', received_at=NOW(), received_notes=? WHERE spb_number=? AND delivery_status='PENDING'");
+                $stmt->bind_param("ss", $received_notes, $spb_number);
+            }
+
+            if ($stmt->execute()) {
+                $success = "✅ Serah terima untuk SPB $spb_number dikonfirmasi! ($pending_count item ditandai diterima)";
+                logActivity($_SESSION['user_id'], 'CONFIRM_DELIVERY', 
+                    "Konfirmasi serah terima barang keluar SPB $spb_number ($pending_count item)"
+                );
+            } else {
+                $error = '❌ Gagal konfirmasi serah terima!';
+            }
             $stmt->close();
         }
     }
@@ -647,6 +716,42 @@ $displayName = $_SESSION['user_name'] ?? 'Pengguna';
                 </div>
 
                 <div class="form-section">
+                    <div class="form-section-title"><i class="fas fa-truck-fast"></i> Pengiriman &amp; Serah Terima</div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="field-label">Metode Pengiriman *</label>
+                            <select name="delivery_method" id="delivery_method" required onchange="toggleDeliveryFields()" class="input-field">
+                                <option value="Diambil Langsung">Diambil Langsung (tidak perlu serah terima)</option>
+                                <option value="Diantar Driver/Karyawan">Diantar oleh Driver / Karyawan</option>
+                            </select>
+                            <p style="color:#6b7280; font-size:11px; margin-top:4px;">Jika diantar, status akan "Menunggu Konfirmasi" sampai barang dikonfirmasi diterima.</p>
+                        </div>
+                    </div>
+                    <div id="deliveryFieldsWrapper" style="display:none;">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="field-label">Nama Driver / Karyawan Pengantar *</label>
+                                <input type="text" name="driver_name" id="driver_name" placeholder="Nama yang mengantarkan barang" class="input-field">
+                            </div>
+                            <div>
+                                <label class="field-label">Penanggung Jawab *</label>
+                                <input type="text" name="pic_name" id="pic_name" placeholder="Nama PIC yang bertanggung jawab" class="input-field">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="field-label">Nama Penerima di Tujuan</label>
+                                <input type="text" name="recipient_name" id="recipient_name" placeholder="Opsional — diisi saat serah terima jika belum diketahui" class="input-field">
+                            </div>
+                            <div>
+                                <label class="field-label">Lokasi / Jabatan Penerima</label>
+                                <input type="text" name="recipient_note" id="recipient_note" placeholder="Opsional, misal: Site Project Alpha" class="input-field">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
                     <div class="form-section-title"><i class="fas fa-boxes"></i> Detail Barang</div>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
@@ -782,6 +887,10 @@ $displayName = $_SESSION['user_name'] ?? 'Pengguna';
         foreach($data as $item) { $grouped[$item['spb_number']][] = $item; }
         foreach($grouped as $spb => $items):
             $t = $totals[$spb];
+            $first = $items[0];
+            $delivery_method = $first['delivery_method'] ?? 'Diambil Langsung';
+            $delivery_status = $first['delivery_status'] ?? 'DITERIMA';
+            $spbSafeId = preg_replace('/[^a-zA-Z0-9]/', '_', $spb);
         ?>
         <div class="group-card">
             <div class="group-header">
@@ -789,9 +898,49 @@ $displayName = $_SESSION['user_name'] ?? 'Pengguna';
                     <strong>SPB: <?php echo htmlspecialchars($t['spb']); ?></strong>
                     <span class="sep">|</span>
                     <span><?php echo date('d/m/Y', strtotime($t['date'])); ?></span>
+                    <span class="sep">|</span>
+                    <?php if ($delivery_method === 'Diantar Driver/Karyawan'): ?>
+                        <?php if ($delivery_status === 'DITERIMA'): ?>
+                            <span class="badge-pill badge-aman"><i class="fas fa-check-circle"></i> Diterima<?php echo !empty($first['received_at']) ? ' — ' . date('d/m/Y H:i', strtotime($first['received_at'])) : ''; ?></span>
+                        <?php else: ?>
+                            <span class="badge-pill badge-sedang"><i class="fas fa-hourglass-half"></i> Menunggu Serah Terima</span>
+                        <?php endif; ?>
+                        <span class="sep">|</span>
+                        <span style="color:#9ca3af; font-size:11.5px;"><i class="fas fa-truck"></i> Driver: <?php echo htmlspecialchars($first['driver_name'] ?? '-'); ?> &middot; PJ: <?php echo htmlspecialchars($first['pic_name'] ?? '-'); ?></span>
+                    <?php else: ?>
+                        <span class="badge-pill badge-aman"><i class="fas fa-hand-holding"></i> Diambil Langsung</span>
+                    <?php endif; ?>
                 </div>
-                <div class="group-header-right"><?php echo $t['items']; ?> Item &middot; <?php echo formatCurrency($t['total']); ?></div>
+                <div class="group-header-right" style="display:flex; align-items:center; gap:10px;">
+                    <span><?php echo $t['items']; ?> Item &middot; <?php echo formatCurrency($t['total']); ?></span>
+                    <?php if ($delivery_method === 'Diantar Driver/Karyawan' && $delivery_status === 'PENDING'): ?>
+                    <button type="button" class="btn-sm btn-primary" onclick="toggleConfirmForm('<?php echo $spbSafeId; ?>')"><i class="fas fa-clipboard-check"></i> Konfirmasi Diterima</button>
+                    <?php endif; ?>
+                    <a href="handover_receipt.php?spb=<?php echo urlencode($spb); ?>" target="_blank" class="btn-sm btn-secondary"><i class="fas fa-print"></i> Cetak Serah Terima</a>
+                </div>
             </div>
+
+            <?php if ($delivery_method === 'Diantar Driver/Karyawan' && $delivery_status === 'PENDING'): ?>
+            <div id="confirmForm_<?php echo $spbSafeId; ?>" style="display:none; padding:14px 16px; background:rgba(16,185,129,0.05); border-bottom:1px solid rgba(255,255,255,0.06);">
+                <form method="POST" onsubmit="return confirm('Konfirmasi bahwa barang SPB <?php echo htmlspecialchars($spb); ?> sudah diterima dengan baik?');">
+                    <input type="hidden" name="action" value="confirm_delivery">
+                    <input type="hidden" name="spb_number" value="<?php echo htmlspecialchars($spb); ?>">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3" style="align-items:end;">
+                        <div>
+                            <label class="field-label">Nama Penerima *</label>
+                            <input type="text" name="recipient_name_confirm" required value="<?php echo htmlspecialchars($first['recipient_name'] ?? ''); ?>" placeholder="Nama yang menerima barang" class="input-field">
+                        </div>
+                        <div>
+                            <label class="field-label">Catatan Serah Terima</label>
+                            <input type="text" name="received_notes" placeholder="Opsional, misal: kondisi barang baik" class="input-field">
+                        </div>
+                        <div>
+                            <button type="submit" class="btn-primary" style="width:100%;"><i class="fas fa-check"></i> Simpan Konfirmasi</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <?php endif; ?>
 
             <div style="overflow-x:auto;">
                 <table class="data-table">
@@ -869,6 +1018,37 @@ const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('sidebarOverlay');
 toggle.addEventListener('click', () => { sidebar.classList.toggle('open'); overlay.classList.toggle('open'); });
 overlay.addEventListener('click', () => { sidebar.classList.remove('open'); overlay.classList.remove('open'); });
+
+// ========================================
+// SERAH TERIMA & PENANGGUNG JAWAB (Revisi Sidang #2)
+// Tampilkan field driver/PIC hanya jika metode pengiriman = "Diantar Driver/Karyawan"
+// ========================================
+function toggleDeliveryFields() {
+    const methodEl = document.getElementById('delivery_method');
+    const wrapper = document.getElementById('deliveryFieldsWrapper');
+    const driverInput = document.getElementById('driver_name');
+    const picInput = document.getElementById('pic_name');
+    if (!methodEl || !wrapper) return;
+
+    if (methodEl.value === 'Diantar Driver/Karyawan') {
+        wrapper.style.display = 'block';
+        if (driverInput) driverInput.setAttribute('required', 'required');
+        if (picInput) picInput.setAttribute('required', 'required');
+    } else {
+        wrapper.style.display = 'none';
+        if (driverInput) driverInput.removeAttribute('required');
+        if (picInput) picInput.removeAttribute('required');
+    }
+}
+document.addEventListener('DOMContentLoaded', toggleDeliveryFields);
+
+function toggleConfirmForm(spbSafeId) {
+    const el = document.getElementById('confirmForm_' + spbSafeId);
+    if (el) {
+        el.style.display = (el.style.display === 'none' || el.style.display === '') ? 'block' : 'none';
+    }
+}
 </script>
 </body>
+
 </html>

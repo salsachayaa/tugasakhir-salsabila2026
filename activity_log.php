@@ -19,12 +19,23 @@ $roleLabels = [
 ];
 
 $actionLabels = [
-    'LOGIN'         => 'Login',
-    'LOGOUT'        => 'Logout',
-    'CREATE_USER'   => 'Buat Pengguna',
-    'UPDATE_ROLE'   => 'Ubah Role',
-    'UPDATE_STATUS' => 'Ubah Status',
-    'DELETE_USER'   => 'Hapus Pengguna',
+    'LOGIN'            => 'Login',
+    'LOGOUT'           => 'Logout',
+    'CREATE_USER'      => 'Buat Pengguna',
+    'UPDATE_ROLE'      => 'Ubah Role',
+    'UPDATE_STATUS'    => 'Ubah Status',
+    'DELETE_USER'      => 'Hapus Pengguna',
+    'CREATE_INCOMING'  => 'Tambah Barang Masuk',
+    'UPDATE_INCOMING'  => 'Ubah Barang Masuk',
+    'DELETE_INCOMING'  => 'Hapus Barang Masuk',
+    'IMPORT_INCOMING'  => 'Import Barang Masuk',
+    'CREATE_STOCK'     => 'Tambah Stock (Audit)',
+    'UPDATE_STOCK'     => 'Ubah Stock',
+    'DELETE_STOCK'     => 'Hapus Stock',
+    'CREATE_OUTGOING'  => 'Tambah Barang Keluar',
+    'UPDATE_OUTGOING'  => 'Ubah Barang Keluar',
+    'DELETE_OUTGOING'  => 'Hapus Barang Keluar',
+    'CONFIRM_DELIVERY' => 'Konfirmasi Serah Terima',
 ];
 
 // ========================================
@@ -197,6 +208,17 @@ function buildFilterQuery($overrides = []) {
         .badge-action.UPDATE_ROLE { background: rgba(245,158,11,0.15); color: #fbbf24; }
         .badge-action.UPDATE_STATUS { background: rgba(139,92,246,0.15); color: #a78bfa; }
         .badge-action.DELETE_USER { background: rgba(239,68,68,0.15); color: #ef4444; }
+        .badge-action.CREATE_INCOMING { background: rgba(16,185,129,0.15); color: #34d399; }
+        .badge-action.UPDATE_INCOMING { background: rgba(245,158,11,0.15); color: #fbbf24; }
+        .badge-action.DELETE_INCOMING { background: rgba(239,68,68,0.15); color: #f87171; }
+        .badge-action.IMPORT_INCOMING { background: rgba(59,130,246,0.15); color: #60a5fa; }
+        .badge-action.CREATE_STOCK { background: rgba(16,185,129,0.15); color: #34d399; }
+        .badge-action.UPDATE_STOCK { background: rgba(245,158,11,0.15); color: #fbbf24; }
+        .badge-action.DELETE_STOCK { background: rgba(239,68,68,0.15); color: #f87171; }
+        .badge-action.CREATE_OUTGOING { background: rgba(249,115,22,0.15); color: #fb923c; }
+        .badge-action.UPDATE_OUTGOING { background: rgba(245,158,11,0.15); color: #fbbf24; }
+        .badge-action.DELETE_OUTGOING { background: rgba(239,68,68,0.15); color: #f87171; }
+        .badge-action.CONFIRM_DELIVERY { background: rgba(20,184,166,0.15); color: #2dd4bf; }
 
         .pagination { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 20px; flex-wrap: wrap; }
         .page-link {
@@ -349,7 +371,7 @@ function buildFilterQuery($overrides = []) {
                             </td>
                             <td><span class="desc-text"><?php echo htmlspecialchars($log['description']); ?></span></td>
                             <td><span class="ip-text"><?php echo htmlspecialchars($log['ip_address']); ?></span></td>
-                            <td><span class="time-text"><?php echo formatDate($log['created_at']); ?></span></td>
+                            <td><span class="time-text"><?php echo formatDateIndo($log['created_at']); ?></span></td>
                         </tr>
                         <?php endforeach; endif; ?>
                     </tbody>

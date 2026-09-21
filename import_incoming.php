@@ -164,6 +164,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['excel_file'])) {
             
             if ($imported > 0) {
                 $success = "✅ Berhasil import $imported data!" . ($failed > 0 ? " ⚠️ Gagal: $failed data." : "");
+                logActivity($_SESSION['user_id'], 'IMPORT_INCOMING', 
+                    "Import massal barang masuk dari file: $imported data berhasil" . ($failed > 0 ? ", $failed data gagal" : "")
+                );
             } else if ($failed > 0) {
                 $error = "❌ Tidak ada data yang berhasil diimport! Gagal: $failed data.";
             }

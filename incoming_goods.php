@@ -61,6 +61,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         if ($stmt->execute()) {
             $incoming_id = $conn->insert_id;
+
+            logActivity($_SESSION['user_id'], 'CREATE_INCOMING', 
+                "Menambahkan barang masuk: {$_POST['item_name']} (Qty: {$_POST['quantity']} {$_POST['unit']}) — Invoice {$_POST['invoice_number']} dari {$_POST['vendor']}"
+            );
             
             $check_stmt = $conn->prepare("SELECT id, current_quantity, initial_quantity FROM inventory_stock WHERE part_number = ? LIMIT 1");
             $check_stmt->bind_param("s", $_POST['part_number']);
@@ -193,6 +197,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 
                 $success = '✅ Data berhasil diupdate dan stock disesuaikan!';
                 $action = 'list';
+
+                logActivity($_SESSION['user_id'], 'UPDATE_INCOMING', 
+                    "Mengubah data barang masuk: {$_POST['item_name']} (Invoice {$_POST['invoice_number']}), ID #{$_POST['id']}"
+                );
             } else {
                 $error = '❌ Gagal update!';
             }
@@ -222,6 +230,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 } else {
                     $success = '✅ Data barang masuk dihapus (tidak ada stock terkait)!';
                 }
+
+                logActivity($_SESSION['user_id'], 'DELETE_INCOMING', 
+                    "Menghapus barang masuk: {$data['item_name']} (Invoice {$data['invoice_number']}, Part#: {$data['part_number']})"
+                );
             } else {
                 $error = '❌ Gagal hapus!';
             }
@@ -248,6 +260,43 @@ if (empty($available_years)) {
 
 if (!in_array($selected_year, $available_years)) {
     $selected_year = $available_years[0];
+}
+
+// ========================================
+// OTOMATISASI NO INVOICE (Revisi Sidang #4)
+// Ambil daftar No Invoice yang SUDAH PERNAH tersimpan, beserta data terkait
+// (tanggal, vendor, alokasi, project, status bayar) untuk auto-fill saat
+// user memilih/mengetik No Invoice yang sudah ada. User tetap bisa
+// mengetik No Invoice BARU secara manual (CRUD tetap penuh, tidak dikunci).
+$existingInvoices = [];
+if ($action === 'create' || $action === 'edit') {
+    $conn = getDBConnection();
+    // Ambil baris TERBARU (id terbesar) untuk tiap invoice_number yang unik
+    $inv_result = $conn->query(
+        "SELECT ig.invoice_number, ig.invoice_date, ig.vendor, ig.allocation_plan, ig.project,
+                ig.payment_status, ig.payment_due_date, ig.payment_notes
+         FROM incoming_goods ig
+         INNER JOIN (
+             SELECT invoice_number, MAX(id) as max_id
+             FROM incoming_goods
+             GROUP BY invoice_number
+         ) latest ON latest.invoice_number = ig.invoice_number AND latest.max_id = ig.id
+         ORDER BY ig.invoice_number ASC"
+    );
+    if ($inv_result) {
+        while ($row = $inv_result->fetch_assoc()) {
+            $existingInvoices[$row['invoice_number']] = [
+                'invoice_date'     => $row['invoice_date'],
+                'vendor'           => $row['vendor'],
+                'allocation_plan'  => $row['allocation_plan'],
+                'project'          => $row['project'],
+                'payment_status'   => $row['payment_status'],
+                'payment_due_date' => $row['payment_due_date'],
+                'payment_notes'    => $row['payment_notes'],
+            ];
+        }
+    }
+    $conn->close();
 }
 
 $month_names = [
@@ -664,15 +713,21 @@ $displayName = $_SESSION['user_name'] ?? 'Pengguna';
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
                             <label class="field-label">Tanggal Invoice *</label>
-                            <input type="date" name="invoice_date" required value="<?php echo $item['invoice_date']??date('Y-m-d'); ?>" class="input-field">
+                            <input type="date" id="invoice_date" name="invoice_date" required value="<?php echo $item['invoice_date']??date('Y-m-d'); ?>" class="input-field">
                         </div>
                         <div>
                             <label class="field-label">No Invoice *</label>
-                            <input type="text" name="invoice_number" required value="<?php echo htmlspecialchars($item['invoice_number']??''); ?>" class="input-field">
+                            <input type="text" id="invoice_number" name="invoice_number" list="invoiceNumberList" autocomplete="off" required value="<?php echo htmlspecialchars($item['invoice_number']??''); ?>" class="input-field" placeholder="Pilih No Invoice yang sudah ada, atau ketik baru">
+                            <datalist id="invoiceNumberList">
+                                <?php foreach ($existingInvoices as $invNumber => $invData): ?>
+                                <option value="<?php echo htmlspecialchars($invNumber); ?>"></option>
+                                <?php endforeach; ?>
+                            </datalist>
+                            <p style="color:#6b7280; font-size:11px; margin-top:4px;">Ketik untuk cari No Invoice yang sudah ada (auto-isi data lain), atau buat No Invoice baru.</p>
                         </div>
                         <div>
                             <label class="field-label">Vendor *</label>
-                            <input type="text" name="vendor" required value="<?php echo htmlspecialchars($item['vendor']??''); ?>" class="input-field">
+                            <input type="text" id="vendor" name="vendor" required value="<?php echo htmlspecialchars($item['vendor']??''); ?>" class="input-field">
                         </div>
                     </div>
                 </div>
@@ -693,7 +748,7 @@ $displayName = $_SESSION['user_name'] ?? 'Pengguna';
                         </div>
                         <div>
                             <label class="field-label">Catatan Pembayaran</label>
-                            <input type="text" name="payment_notes" value="<?php echo htmlspecialchars($item['payment_notes']??''); ?>" placeholder="Opsional" class="input-field">
+                            <input type="text" id="payment_notes" name="payment_notes" value="<?php echo htmlspecialchars($item['payment_notes']??''); ?>" placeholder="Opsional" class="input-field">
                         </div>
                     </div>
                 </div>
@@ -703,14 +758,15 @@ $displayName = $_SESSION['user_name'] ?? 'Pengguna';
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="field-label">Rencana Alokasi *</label>
-                            <input type="text" name="allocation_plan" required value="<?php echo htmlspecialchars($item['allocation_plan']??''); ?>" class="input-field">
+                            <input type="text" id="allocation_plan" name="allocation_plan" required value="<?php echo htmlspecialchars($item['allocation_plan']??''); ?>" class="input-field">
                         </div>
                         <div>
                             <label class="field-label">Project *</label>
-                            <input type="text" name="project" required value="<?php echo htmlspecialchars($item['project']??''); ?>" class="input-field">
+                            <input type="text" id="project" name="project" required value="<?php echo htmlspecialchars($item['project']??''); ?>" class="input-field">
                         </div>
                     </div>
                 </div>
+
 
                 <div class="form-section">
                     <div class="form-section-title"><i class="fas fa-box"></i> Barang</div>
@@ -954,6 +1010,40 @@ const sidebar = document.getElementById('sidebar');
 const overlay = document.getElementById('sidebarOverlay');
 toggle.addEventListener('click', () => { sidebar.classList.toggle('open'); overlay.classList.toggle('open'); });
 overlay.addEventListener('click', () => { sidebar.classList.remove('open'); overlay.classList.remove('open'); });
+
+// ========================================
+// OTOMATISASI NO INVOICE (Revisi Sidang #4)
+// Jika user memilih/mengetik No Invoice yang SUDAH PERNAH tersimpan,
+// otomatis isikan field terkait (tanggal, vendor, alokasi, project, status bayar).
+// Field tetap bisa diubah manual (CRUD penuh) — ini hanya bantuan pengisian.
+// ========================================
+const existingInvoicesData = <?php echo json_encode($existingInvoices, JSON_UNESCAPED_UNICODE); ?>;
+const invoiceNumberInput = document.getElementById('invoice_number');
+
+if (invoiceNumberInput) {
+    function autofillFromInvoice(invNumber) {
+        const data = existingInvoicesData[invNumber];
+        if (!data) return;
+
+        document.getElementById('invoice_date').value = data.invoice_date || '';
+        document.getElementById('vendor').value = data.vendor || '';
+        document.getElementById('allocation_plan').value = data.allocation_plan || '';
+        document.getElementById('project').value = data.project || '';
+        document.getElementById('payment_status').value = data.payment_status || 'Cash';
+        document.getElementById('payment_notes').value = data.payment_notes || '';
+        toggleDueDate();
+        if (data.payment_due_date) {
+            document.getElementById('payment_due_date').value = data.payment_due_date;
+        }
+    }
+
+    invoiceNumberInput.addEventListener('input', function () {
+        autofillFromInvoice(this.value);
+    });
+    invoiceNumberInput.addEventListener('change', function () {
+        autofillFromInvoice(this.value);
+    });
+}
 </script>
 </body>
 </html>

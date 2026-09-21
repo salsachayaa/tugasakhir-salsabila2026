@@ -468,6 +468,28 @@ function formatDateLong($date) {
     return "$day $month $year, $time";
 }
 
+// Format tanggal Indonesia LENGKAP dengan nama hari (untuk Log Aktivitas)
+// Contoh hasil: "Senin, 18 September 2026, 14:05"
+function formatDateIndo($date) {
+    $hari = [
+        'Sunday' => 'Minggu', 'Monday' => 'Senin', 'Tuesday' => 'Selasa',
+        'Wednesday' => 'Rabu', 'Thursday' => 'Kamis', 'Friday' => 'Jumat', 'Saturday' => 'Sabtu'
+    ];
+    $bulan = [
+        1 => 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    ];
+
+    $timestamp = strtotime($date);
+    $dayName = $hari[date('l', $timestamp)];
+    $day = date('d', $timestamp);
+    $month = $bulan[date('n', $timestamp)];
+    $year = date('Y', $timestamp);
+    $time = date('H:i', $timestamp);
+
+    return "$dayName, $day $month $year, $time";
+}
+
 // Time ago format
 function timeAgo($datetime) {
     $timestamp = strtotime($datetime);
@@ -560,7 +582,7 @@ function logActivity($userId, $action, $description = '') {
 
 // Ambil status kadaluarsa sebuah item stock berdasarkan expiry_date & sisa qty
 // Return: null jika tidak ada expiry_date atau qty sudah habis, atau array status
-function getExpiryStatus($expiry_date, $current_quantity, $warningDays = 30) {
+function getExpiryStatus($expiry_date, $current_quantity, $warningDays = 90) {
     if (empty($expiry_date) || $current_quantity <= 0) {
         return null;
     }
@@ -580,7 +602,7 @@ function getExpiryStatus($expiry_date, $current_quantity, $warningDays = 30) {
 
 // Ambil semua item stock yang sudah kadaluarsa atau akan kadaluarsa (H-warningDays)
 // dan masih punya sisa stock (current_quantity > 0)
-function getExpiringStockItems($warningDays = 30) {
+function getExpiringStockItems($warningDays = 90) {
     $conn = getDBConnection();
     $stmt = $conn->prepare(
         "SELECT * FROM inventory_stock 
@@ -603,7 +625,7 @@ function getExpiringStockItems($warningDays = 30) {
 }
 
 // Ringkasan jumlah untuk badge / dashboard card
-function getExpiryNotificationSummary($warningDays = 30) {
+function getExpiryNotificationSummary($warningDays = 90) {
     $items = getExpiringStockItems($warningDays);
     $summary = ['expired' => 0, 'warning' => 0, 'total' => count($items)];
     foreach ($items as $item) {
@@ -617,7 +639,7 @@ function getExpiryNotificationSummary($warningDays = 30) {
 }
 
 // Jumlah total untuk badge sidebar (dipanggil di tiap halaman)
-function getExpiryAlertCount($warningDays = 30) {
+function getExpiryAlertCount($warningDays = 90) {
     $conn = getDBConnection();
     $stmt = $conn->prepare(
         "SELECT COUNT(*) as total FROM inventory_stock 
@@ -685,7 +707,7 @@ function buildExpiryEmailBody($item) {
 
 // Proses utama: cek barang kadaluarsa/akan kadaluarsa, kirim email jika belum pernah dikirim
 // untuk kombinasi (inventory_stock_id, notif_type) tersebut. Dipanggil oleh cron harian.
-function processExpiryNotifications($warningDays = 30) {
+function processExpiryNotifications($warningDays = 90) {
     $items = getExpiringStockItems($warningDays);
     if (empty($items)) {
         return ['checked' => 0, 'emails_sent' => 0];

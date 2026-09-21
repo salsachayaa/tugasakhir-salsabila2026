@@ -44,7 +44,7 @@ $stmt->close();
 // ========================================
 // STATISTIK NOTIFIKASI KADALUARSA
 // ========================================
-$expiry_summary = getExpiryNotificationSummary(30);
+$expiry_summary = getExpiryNotificationSummary(90);
 
 // ========================================
 // STATISTIK BARANG KELUAR
@@ -609,7 +609,7 @@ function formatMonthID($yearMonth) {
                         <strong style="color:#fca5a5;"><?php echo $expiry_summary['expired']; ?> item</strong> sudah <strong style="color:#fca5a5;">kadaluarsa</strong><?php echo $expiry_summary['warning'] > 0 ? ', dan ' : '. '; ?>
                     <?php endif; ?>
                     <?php if ($expiry_summary['warning'] > 0): ?>
-                        <strong style="color:#fbbf24;"><?php echo $expiry_summary['warning']; ?> item</strong> akan kadaluarsa dalam 30 hari.
+                        <strong style="color:#fbbf24;"><?php echo $expiry_summary['warning']; ?> item</strong> akan kadaluarsa dalam 90 hari (3 bulan).
                     <?php endif; ?>
                     <a href="expiry_notification.php" style="color:#67e8f9; text-decoration:underline; margin-left:4px;">Lihat detail &rarr;</a>
                 </span>

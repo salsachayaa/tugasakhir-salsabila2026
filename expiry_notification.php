@@ -9,7 +9,7 @@ $currentRole = getCurrentUserRole();
 $canManage = userCanManage($currentRole); // true untuk 'admin' dan 'pimpinan'
 $expiring_count = getExpiryAlertCount();
 
-$warningDays = 30;
+$warningDays = 90;
 $filter_status = $_GET['status'] ?? 'all'; // all | expired | warning
 $search = $_GET['search'] ?? '';
 
